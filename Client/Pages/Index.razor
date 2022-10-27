@@ -1,0 +1,166 @@
+﻿@page "/"
+
+<PageTitle>ToDoApp</PageTitle>
+
+<body>
+    <header>
+        
+        <h1>To Do List</h1>
+
+        <form id="new-task-form" @onsubmit="AddToDo">
+            <input @bind="ToDo.Content"
+                   type="text"
+                   id="new-task-input"
+                   placeholder="What do you have planned?"
+                   maxlength="67"
+                   autocomplete="off"
+                   autofocus />
+            <button @onclick="AddToDo" type="button" class="add">
+                <i class="fa-solid fa-circle-plus fa-xl"></i>
+            </button>
+
+        </form>
+
+    </header>
+
+    <main>
+
+        <section class="task-list">
+
+
+            <div id="tasks">
+
+                @if (ToDos.Count > 0)
+                {
+                    @foreach (var todo in ToDos)
+                    {
+
+                        <div class="task" >
+                            <div>
+                               <input @onchange="()=> UpdateToDoIsDone(todo)"
+                               type="checkbox"
+                               checked=@todo.IsDone
+                               />
+                            </div>
+
+                            <div class="content">
+                               <input 
+                               maxlength="67"
+                               autocomplete="off"
+                               type="text"
+                               class="@(todo.IsDone? "changedtext" : "text")"
+                               @bind=@todo.Content
+                               @oninput="OnInputEvent" 
+                               />
+
+                            </div>
+                            <div class="actions">
+                                <button @onclick="()=> UpdateToDo(todo)" class="edit"><i class="fa fa-floppy-disk fa-xl" aria-hidden="true"></i></button>
+
+                                <button @onclick="()=> DeleteToDo(todo)" class="delete"><i class="fa fa-trash fa-xl" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+
+                    }
+                }
+                else
+                {
+                    <p><em></em></p>
+                }
+            </div>
+
+
+
+        </section>
+
+    </main>
+</body>
+
+@code {
+
+    string ServerBaseUrl = "https://blazortodolist-server.azurewebsites.net/";
+    List<ToDo> ToDos = new List<ToDo>();
+    ToDo ToDo = new ToDo();
+    ToDo todo = new ToDo();
+
+
+    private void OnInputEvent(ChangeEventArgs changeEvent) => todo.Content = (string)changeEvent.Value;
+
+
+    async Task GetToDos()
+    {
+        using (var http = new HttpClient())
+        {
+            string url = $"{ServerBaseUrl}todos/all";
+            var list = await http.GetFromJsonAsync<List<ToDo>>(url);
+            if (list != null)
+            {
+                ToDos.Clear();
+                ToDos.AddRange(list);
+            }
+        }
+    }
+
+
+    async Task AddToDo()
+    {
+        if (ToDo.Content != string.Empty)
+        {
+
+            using (var http = new HttpClient())
+            {
+                string url = $"{ServerBaseUrl}todos/create/";;
+                await http.PostAsJsonAsync(url, ToDo);
+            }
+            ToDo.Content = string.Empty;
+            await GetToDos();
+        }
+    }
+
+
+    async Task UpdateToDo(ToDo todo)
+    {
+        using (var http = new HttpClient())
+        {
+            string url = $"{ServerBaseUrl}todos/update/{todo.Id}";
+
+            await http.PutAsJsonAsync(url, todo);
+        }
+        await GetToDos();
+    }
+
+
+    async Task UpdateToDoIsDone(ToDo todo)
+    {
+
+        todo.IsDone = !todo.IsDone;
+        StateHasChanged();
+
+        using (var http = new HttpClient())
+        {
+            string url = $"{ServerBaseUrl}todos/update/{todo.Id}";
+
+            await http.PutAsJsonAsync(url, todo);
+        }
+        await GetToDos();
+    }
+
+
+    async Task DeleteToDo(ToDo todo)
+    {
+        using (var http = new HttpClient())
+        {
+            string url = $"{ServerBaseUrl}todos/delete/{todo.Id}";
+            await http.DeleteAsync(url);
+        }
+        await GetToDos();
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetToDos();
+    }
+
+
+}
